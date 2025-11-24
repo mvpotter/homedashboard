@@ -1,0 +1,85 @@
+esphome:
+  name: home
+
+esp32:
+  board: esp32-s3-devkitc-1
+  variant: esp32s3
+  framework:
+    type: esp-idf
+
+psram:
+  mode: octal
+  speed: 80MHz
+
+# Enable logging
+logger:
+  level: DEBUG
+
+# Enable Home Assistant API
+api:
+  password: ""
+
+ota:
+  - platform: esphome
+    password: ""
+
+wifi:
+  ssid: "TT_IoT"
+  password: "xdkN2iXNrN3w4CPsHo"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Home Fallback Hotspot"
+    password: "JcwSvS1e3HeW"
+
+  on_connect:
+    - logger.log: "WiFi connected, forcing image update"
+    - component.update: dashboard_image
+
+captive_portal:
+    
+# define font to display words
+font:
+  - file: "gfonts://Inter@700"
+    id: myFont
+    size: 24
+
+# define SPI interface
+spi:
+  clk_pin: GPIO7
+  mosi_pin: GPIO9
+
+http_request:
+  verify_ssl: false
+  timeout: 20s
+  watchdog_timeout: 25s
+
+online_image:
+  - id: dashboard_image
+    format: BMP
+    type: BINARY
+    url: http://192.168.3.22:8443/dashboard.bmp
+    update_interval: 1min
+    on_download_finished:
+      - logger.log: "online_image: download finished"
+      - component.update: epaper_display
+    on_error:
+      - logger.log:
+          level: ERROR
+          format: "online_image: download or decode error"
+
+display:
+  - platform: waveshare_epaper
+    id: epaper_display
+    model: 7.50inv2
+    cs_pin: GPIO10
+    dc_pin: GPIO11
+    reset_pin:
+      number: GPIO12
+      inverted: false
+    busy_pin:
+      number: GPIO13
+      inverted: true
+    update_interval: never
+    lambda: |-
+      it.image(0, 0, id(dashboard_image));

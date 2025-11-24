@@ -1,0 +1,169 @@
+esphome:
+  name: home
+
+esp32:
+  board: esp32-s3-devkitc-1
+  variant: esp32s3
+  framework:
+    type: esp-idf
+
+psram:
+  mode: octal
+  speed: 80MHz
+
+# Enable logging
+logger:
+  level: DEBUG
+
+# Enable Home Assistant API
+api:
+  password: ""
+
+ota:
+  - platform: esphome
+    password: ""
+
+wifi:
+  ssid: "TT_IoT"
+  password: "xdkN2iXNrN3w4CPsHo"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Home Fallback Hotspot"
+    password: "JcwSvS1e3HeW"
+
+  on_connect:
+    - logger.log: "WiFi connected, forcing image update"
+    - component.update: dashboard_image
+
+captive_portal:
+    
+interval:
+  # --- ДНЕВНОЕ обновление: каждые 1 мин ---
+  - interval: 60s
+    then:
+      - lambda: |-
+          // День: 06:00–23:00
+          auto t = id(sntp_time).now();
+          if (!t.is_valid()) return;
+          int h = t.hour;
+          if (h >= 6 && h < 23) {
+            ESP_LOGD("interval", "Daytime refresh: 1 min");
+            id(dashboard_image).update();   // обновить картинку
+          }
+
+  # --- НОЧНОЕ обновление: каждые 60 мин ---
+  - interval: 60min
+    then:
+      - lambda: |-
+          // Ночь: 23:00–06:00
+          auto t = id(sntp_time).now();
+          if (!t.is_valid()) return;
+          int h = t.hour;
+          if (h >= 23 || h < 6) {
+            ESP_LOGD("interval", "Night refresh: 60 min");
+            id(dashboard_image).update();
+          }
+
+
+deep_sleep:
+  id: deep_sleep_ctrl
+  wakeup_pin: 
+    number: GPIO3 # Green button
+    allow_other_uses: true
+  wakeup_pin_mode: INVERT_WAKEUP
+
+time:
+  - platform: sntp
+    id: sntp_time
+    timezone: Europe/Berlin
+    on_time:
+      - seconds: 0
+        minutes: 30
+        hours: 22
+        then:
+          - logger.log: "Going to deep sleep for the night"
+          - deep_sleep.enter:
+              id: deep_sleep_ctrl
+              sleep_duration: 8h
+
+binary_sensor:
+  - platform: gpio
+    id: sleep_wakeup_button
+    pin:
+      number: GPIO3  # Green button
+      mode: INPUT_PULLUP
+      inverted: true
+      allow_other_uses: true
+    on_press:
+      then:
+        - logger.log: "Button pressed -> going to deep sleep"
+        - deep_sleep.enter:
+            id: deep_sleep_ctrl
+            sleep_duration: 4h
+  - platform: gpio
+    id: next_button
+    pin:
+      number: GPIO4  # Right button
+      mode: INPUT_PULLUP
+      inverted: true
+    on_press:
+      then:
+        - logger.log: "Right button pressed -> reload dashboard"
+        - component.update: dashboard_image
+  - platform: gpio
+    id: prev_button
+    pin:
+      number: GPIO5  # Right button
+      mode: INPUT_PULLUP
+      inverted: true
+    on_press:
+      then:
+        - logger.log: "Left button pressed -> reload dashboard"
+        - component.update: dashboard_image
+
+# define font to display words
+font:
+  - file: "gfonts://Inter@700"
+    id: myFont
+    size: 24
+
+# define SPI interface
+spi:
+  clk_pin: GPIO7
+  mosi_pin: GPIO9
+
+http_request:
+  verify_ssl: false
+  timeout: 20s
+  watchdog_timeout: 25s
+
+online_image:
+  - id: dashboard_image
+    format: BMP
+    type: BINARY
+    url: http://192.168.3.22:8443/dashboard.bmp
+    update_interval: never
+    on_download_finished:
+      - logger.log: "online_image: download finished"
+      - component.update: epaper_display
+    on_error:
+      - logger.log:
+          level: ERROR
+          format: "online_image: download or decode error"
+
+display:
+  - platform: waveshare_epaper
+    id: epaper_display
+    model: 7.50inv2
+    cs_pin: GPIO10
+    dc_pin: GPIO11
+    reset_pin:
+      number: GPIO12
+      inverted: false
+    busy_pin:
+      number: GPIO13
+      inverted: true
+    update_interval: never
+    lambda: |-
+      it.image(0, 0, id(dashboard_image));

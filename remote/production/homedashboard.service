@@ -1,0 +1,18 @@
+[Unit]
+Description=Home Dashboard Service
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/mpotter/homedashboard
+ExecStart=/home/mpotter/homedashboard/homedashboard
+Restart=always
+RestartSec=5
+
+StandardOutput=append:/var/log/homedashboard.log
+StandardError=append:/var/log/homedashboard.log
+
+Environment=GODEBUG=madvdontneed=1
+
+[Install]
+WantedBy=multi-user.target
