@@ -43,7 +43,7 @@ func loadWeekEventsFromICS(periodStart time.Time, periodEnd time.Time) ([]Calend
 	}
 
 	var events []CalendarEvent
-
+	loc, _ := time.LoadLocation("Europe/Berlin")
 	for _, e := range cal.Events() {
 		start, _ := e.GetStartAt()
 		end, _ := e.GetEndAt()
@@ -61,8 +61,8 @@ func loadWeekEventsFromICS(periodStart time.Time, periodEnd time.Time) ([]Calend
 		location := e.GetProperty(ics.ComponentPropertyLocation)
 
 		ev := CalendarEvent{
-			Start:    start,
-			End:      end,
+			Start:    start.In(loc),
+			End:      end.In(loc),
 			Summary:  "",
 			Location: "",
 			AllDay:   isAllDay(e),
