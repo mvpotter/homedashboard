@@ -63,7 +63,7 @@ func renderPhotoBMP(ctx context.Context) ([]byte, error) {
 	draw.ApproxBiLinear.Scale(dst, dst.Bounds(), img, srcRect, draw.Over, nil)
 
 	// твой дезеринг
-	dithered := ditherFloydSteinberg(dst, true)
+	dithered := ditherFloydSteinbergHybrid(dst, true)
 
 	// кодируем в BMP в память
 	var buf bytes.Buffer

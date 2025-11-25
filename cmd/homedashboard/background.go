@@ -59,4 +59,11 @@ func loadAllImages(ctx context.Context) {
 	} else {
 		log.Println("renderStocksBMP error:", err)
 	}
+
+	// Calendar
+	if bmp, err := renderCalendarBMP(ctx); err == nil {
+		calendarCache.Set(bmp)
+	} else {
+		log.Println("renderCalendarBMP error:", err)
+	}
 }

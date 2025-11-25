@@ -5,6 +5,15 @@ import (
 	"time"
 )
 
+var (
+	transportCache CachedImage
+	quoteCache     CachedImage
+	weatherCache   CachedImage
+	photoCache     CachedImage
+	stocksCache    CachedImage
+	calendarCache  CachedImage
+)
+
 type CachedImage struct {
 	mu        sync.RWMutex
 	data      []byte

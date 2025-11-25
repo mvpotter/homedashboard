@@ -350,3 +350,80 @@ func ditherFloydSteinberg(src image.Image, invert bool) *image.RGBA {
 
 	return out
 }
+
+func ditherFloydSteinbergHybrid(src image.Image, invert bool) *image.RGBA {
+	b := src.Bounds()
+	w, h := b.Dx(), b.Dy()
+
+	// работаем в 0..255 яркости, так проще
+	lum := make([][]float64, h)
+	for y := 0; y < h; y++ {
+		lum[y] = make([]float64, w)
+		for x := 0; x < w; x++ {
+			r, g, b, _ := src.At(b.Min.X+x, b.Min.Y+y).RGBA()
+			// r,g,b в 0..65535
+			y8 := 0.299*float64(r)/65535.0 +
+				0.587*float64(g)/65535.0 +
+				0.114*float64(b)/65535.0
+			lum[y][x] = y8 * 255.0
+		}
+	}
+
+	out := image.NewRGBA(b)
+
+	const lowThreshold = 60.0   // подгони под свой экран
+	const highThreshold = 200.0 // подгони под свой экран
+
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			old := lum[y][x]
+			var newVal float64
+
+			// 1) Крайние зоны: без dither, просто порог.
+			if old <= lowThreshold {
+				newVal = 0 // чёрный
+			} else if old >= highThreshold {
+				newVal = 255 // белый
+			} else {
+				// 2) Средние тона -> Floyd–Steinberg
+				if old < 128 {
+					newVal = 0
+				} else {
+					newVal = 255
+				}
+				err := old - newVal
+
+				// распределяем ошибку, не вылезая за границы
+				//   x+1,y   : 7/16
+				// x-1,y+1   : 3/16
+				//   x,y+1   : 5/16
+				// x+1,y+1   : 1/16
+				if x+1 < w {
+					lum[y][x+1] += err * 7.0 / 16.0
+				}
+				if y+1 < h {
+					if x > 0 {
+						lum[y+1][x-1] += err * 3.0 / 16.0
+					}
+					lum[y+1][x] += err * 5.0 / 16.0
+					if x+1 < w {
+						lum[y+1][x+1] += err * 1.0 / 16.0
+					}
+				}
+			}
+
+			isBlack := newVal < 128
+			if invert {
+				isBlack = !isBlack
+			}
+
+			if isBlack {
+				out.Set(x+b.Min.X, y+b.Min.Y, color.RGBA{0, 0, 0, 255})
+			} else {
+				out.Set(x+b.Min.X, y+b.Min.Y, color.RGBA{255, 255, 255, 255})
+			}
+		}
+	}
+
+	return out
+}

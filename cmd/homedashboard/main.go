@@ -19,22 +19,19 @@ import (
 var templateFS embed.FS
 
 var (
-	quoteTpl       *template.Template
-	transportTpl   *template.Template
-	weatherTpl     *template.Template
-	rootCtx        context.Context
-	browser        context.Context
-	transportCache CachedImage
-	quoteCache     CachedImage
-	weatherCache   CachedImage
-	photoCache     CachedImage
-	stocksCache    CachedImage
+	quoteTpl     *template.Template
+	transportTpl *template.Template
+	weatherTpl   *template.Template
+	calendarTpl  *template.Template
+	rootCtx      context.Context
+	browser      context.Context
 )
 
 func main() {
 	quoteTpl = template.Must(template.ParseFS(templateFS, "templates/quote.html"))
 	transportTpl = template.Must(template.ParseFS(templateFS, "templates/transport.html"))
 	weatherTpl = template.Must(template.ParseFS(templateFS, "templates/weather.html"))
+	calendarTpl = template.Must(template.ParseFS(templateFS, "templates/calendar.html"))
 	rootCtx, _ = chromedp.NewExecAllocator(context.Background(),
 		chromedp.Flag("headless", true),
 		chromedp.Flag("disable-gpu", true),
@@ -51,6 +48,7 @@ func main() {
 	http.HandleFunc("/weather.bmp", handleWeatherBMP)
 	http.HandleFunc("/photo.bmp", handlePhotoBMP)
 	http.HandleFunc("/stocks.bmp", handleStocksBMP)
+	http.HandleFunc("/calendar.bmp", handleCalendarBMP)
 
 	log.Println("Listening on https://<PI-IP>:8443 ...")
 	log.Fatal(http.ListenAndServe(":8443", nil))
@@ -65,17 +63,20 @@ func handleDashboardBMP(w http.ResponseWriter, r *http.Request) {
 	if now.Between(from, to) {
 		handleTransportBMP(w, r)
 		return
+	} else {
+		if lastPage == 0 {
+			handleWeatherBMP(w, r)
+		} else if lastPage == 1 {
+			handleQuoteBMP(w, r)
+		} else if lastPage == 2 {
+			handlePhotoBMP(w, r)
+		} else if lastPage == 3 {
+			handleStocksBMP(w, r)
+		} else if lastPage == 4 {
+			handleCalendarBMP(w, r)
+		}
+		lastPage = (lastPage + 1) % 5
 	}
-	if lastPage == 0 {
-		handleWeatherBMP(w, r)
-	} else if lastPage == 1 {
-		handleQuoteBMP(w, r)
-	} else if lastPage == 2 {
-		handlePhotoBMP(w, r)
-	} else if lastPage == 3 {
-		handleStocksBMP(w, r)
-	}
-	lastPage = (lastPage + 1) % 4
 }
 
 func serveCachedImage(w http.ResponseWriter, r *http.Request, cache *CachedImage) {
@@ -120,7 +121,7 @@ func htmlToBMP(html string) ([]byte, error) {
 		return nil, err
 	}
 
-	bmp, err := encode1bppBMP(ditherFloydSteinberg(img, false))
+	bmp, err := encode1bppBMP(ditherFloydSteinbergHybrid(img, false))
 	if err != nil {
 		log.Println("bmp encode:", err)
 		return nil, err

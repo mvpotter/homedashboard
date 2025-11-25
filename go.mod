@@ -3,6 +3,7 @@ module home-dashboard
 go 1.25
 
 require (
+	github.com/arran4/golang-ical v0.3.2
 	github.com/chromedp/chromedp v0.14.2
 	github.com/fogleman/gg v1.3.0
 	golang.org/x/image v0.33.0
