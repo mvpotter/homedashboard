@@ -21,7 +21,7 @@
         }
 
         .header {
-            font-size: 20px;
+            font-size: 30px;
             font-weight: 800;
             margin-bottom: 10px;
         }
@@ -29,7 +29,7 @@
         .calendar {
             display: flex;
             gap: 10px;
-            font-size: 15px;
+            font-size: 25px;
             line-height: 1.15;
         }
 
@@ -45,14 +45,14 @@
         }
 
         .event-line1 {
-            font-size: 13px;
+            font-size: 22px;
             font-weight: 800;
             margin-bottom: 1px;
             white-space: nowrap;
         }
 
         .event-title {
-            font-size: 13px;
+            font-size: 22px;
             font-weight: 700;
             margin-bottom: 1px;
             overflow: hidden;
@@ -61,7 +61,7 @@
         }
 
         .event-location {
-            font-size: 12px;
+            font-size: 18px;
             font-weight: 600;
             color: #333;
             overflow: hidden;
@@ -89,7 +89,7 @@
             {{if .Location}}
             <div class="event-location">{{.Location}}</div>
             {{else}}
-            <div class="event-location">keine</div>
+            <div class="event-location">-</div>
             {{end}}
         </div>
         {{end}}

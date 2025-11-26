@@ -112,7 +112,7 @@ func renderCalendarBMP(ctx context.Context) ([]byte, error) {
 
 	data := calendarPageData{
 		Range:   periodStart.Format("02.01.") + " – " + periodEnd.AddDate(0, 0, -1).Format("02.01."),
-		Columns: buildColumnsFixed(events, 3, 8),
+		Columns: buildColumnsFixed(events, 2, 5),
 	}
 
 	var buf bytes.Buffer
@@ -133,6 +133,11 @@ func buildColumnsFixed(events []CalendarEvent, colCount, perCol int) [][]Calenda
 	cols := make([][]CalendarEvent, colCount)
 	if len(events) == 0 {
 		return cols
+	}
+
+	maximum := colCount * perCol
+	if len(events) > maximum {
+		events = events[:maximum]
 	}
 
 	colIdx := 0
