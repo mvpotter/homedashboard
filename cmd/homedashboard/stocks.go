@@ -161,7 +161,7 @@ func renderVWCEChart(dates []time.Time, prices []float64) image.Image {
 		val := minP + (maxP-minP)*float64(i)/2.0
 		y := H - bottom - (float64(i)/2.0)*(H-bottom-top)
 
-		dc.SetLineWidth(0.7)
+		dc.SetLineWidth(2.5)
 		dc.DrawLine(left, y, W-right, y)
 		dc.Stroke()
 
@@ -198,7 +198,7 @@ func renderVWCEChart(dates []time.Time, prices []float64) image.Image {
 	for _, tick := range ticks {
 		x := left + (float64(tick.idx)/float64(n-1))*width
 
-		dc.SetLineWidth(0.7)
+		dc.SetLineWidth(2.5)
 		dc.DrawLine(x, top, x, H-bottom)
 		dc.Stroke()
 
