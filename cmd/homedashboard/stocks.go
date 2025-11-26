@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"image"
@@ -12,8 +13,13 @@ import (
 	"time"
 
 	"github.com/fogleman/gg"
+	"github.com/golang/freetype/truetype"
 	"golang.org/x/image/bmp"
+	"golang.org/x/image/font"
 )
+
+//go:embed assets/JetBrainsMono-Bold.ttf
+var fontCustom []byte
 
 type yfResponse struct {
 	Chart struct {
@@ -99,17 +105,21 @@ func renderVWCEChart(dates []time.Time, prices []float64) image.Image {
 
 	dc := gg.NewContext(W, H)
 
-	// фон белый
+	// фон
 	dc.SetRGB(0, 0, 0)
 	dc.Clear()
 
-	// общие отступы
-	const left = 40.0
-	const right = 10.0
-	const top = 70.0
-	const bottom = 40.0
+	const left = 70.0
+	const right = 20.0
+	const top = 90.0
+	const bottom = 80.0
 
-	// вычисляем min/max
+	n := len(prices)
+	if n == 0 {
+		return dc.Image()
+	}
+
+	// min/max
 	minP, maxP := prices[0], prices[0]
 	for _, p := range prices {
 		if p < minP {
@@ -120,47 +130,84 @@ func renderVWCEChart(dates []time.Time, prices []float64) image.Image {
 		}
 	}
 	if maxP == minP {
-		maxP += 1 // защита от деления на 0
+		maxP += 1
 	}
 
 	first := prices[0]
-	last := prices[len(prices)-1]
+	last := prices[n-1]
 	changePct := (last/first - 1.0) * 100
 
-	// === Заголовок с ценой и % ===
-	title := fmt.Sprintf("VWCE · %.2f €  (%+.2f%%)", last, changePct)
+	width := float64(W) - left - right
+	height := float64(H) - top - bottom
+
 	dc.SetRGB(1, 1, 1)
-	_ = dc.LoadFontFace("/usr/share/fonts/truetype/dejavu/DejaVuSans-ExtraBold.ttf", 40)
-	dc.DrawStringAnchored(title, W/2, 30, 0.5, 0.5)
 
-	// подпись диапазона дат
-	dateLabel := fmt.Sprintf("%s — %s",
+	// ===== Заголовок =====
+	dc.SetFontFace(boldFace(12))
+	title := fmt.Sprintf("VWCE  %.2f €  (%+.1f%%)", last, changePct)
+	dc.DrawStringAnchored(title, W/2, 42, 0.5, 0.5)
+
+	// ===== Даты =====
+	dc.SetFontFace(boldFace(12))
+	dateRange := fmt.Sprintf("%s — %s",
 		dates[0].Format("02.01.2006"),
-		dates[len(dates)-1].Format("02.01.2006"),
+		dates[n-1].Format("02.01.2006"),
 	)
-	_ = dc.LoadFontFace("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 16)
-	dc.DrawStringAnchored(dateLabel, W/2, 55, 0.5, 0.5)
+	dc.DrawStringAnchored(dateRange, W/2, 68, 0.5, 0.5)
 
-	// === Ось Y (цены) ===
-	_ = dc.LoadFontFace("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 12)
-	for i := 0; i <= 4; i++ {
-		val := minP + (maxP-minP)*float64(i)/4.0
-		y := H - bottom - (float64(i)/4.0)*(H-bottom-top)
+	// ===== Ось Y: 3 деления =====
+	dc.SetFontFace(boldFace(10))
+	for i := 0; i <= 2; i++ {
+		val := minP + (maxP-minP)*float64(i)/2.0
+		y := H - bottom - (float64(i)/2.0)*(H-bottom-top)
+
+		dc.SetLineWidth(0.7)
 		dc.DrawLine(left, y, W-right, y)
-		dc.SetLineWidth(0.3)
 		dc.Stroke()
 
 		label := fmt.Sprintf("%.0f", val)
-		dc.DrawStringAnchored(label, left-4, y, 1.0, 0.5)
+		dc.DrawStringAnchored(label, left-10, y, 1.0, 0.5)
 	}
 
-	// === Линия графика ===
-	dc.SetLineWidth(2)
-	dc.SetRGB(1, 1, 1)
+	// ===== Месяца по X: каждый, формата 11.25 =====
+	type monthKey struct {
+		year  int
+		month time.Month
+	}
+	type monthTick struct {
+		idx int
+		t   time.Time
+	}
 
-	n := len(prices)
-	width := float64(W) - left - right
-	height := float64(H) - top - bottom
+	seen := make(map[monthKey]bool)
+	var ticks []monthTick
+	for i, t := range dates {
+		k := monthKey{year: t.Year(), month: t.Month()}
+		if !seen[k] {
+			seen[k] = true
+			ticks = append(ticks, monthTick{idx: i, t: t})
+		}
+	}
+
+	// если вдруг больше 12 — берём последние 12
+	if len(ticks) > 12 {
+		ticks = ticks[len(ticks)-12:]
+	}
+
+	dc.SetFontFace(boldFace(10))
+	for _, tick := range ticks {
+		x := left + (float64(tick.idx)/float64(n-1))*width
+
+		dc.SetLineWidth(0.7)
+		dc.DrawLine(x, top, x, H-bottom)
+		dc.Stroke()
+
+		label := tick.t.Format("01.06") // "11.25"
+		dc.DrawStringAnchored(label, x, H-bottom+28, 0.5, 0.0)
+	}
+
+	// ===== Линия графика =====
+	dc.SetLineWidth(3)
 
 	for i := 1; i < n; i++ {
 		x1 := left + (float64(i-1)/float64(n-1))*width
@@ -172,15 +219,26 @@ func renderVWCEChart(dates []time.Time, prices []float64) image.Image {
 		dc.Stroke()
 	}
 
-	// небольшая точка на последнем значении
 	dc.DrawCircle(
 		left+(float64(n-1)/float64(n-1))*width,
 		H-bottom-((last-minP)/(maxP-minP))*height,
-		3,
+		4,
 	)
 	dc.Fill()
 
 	return dc.Image()
+}
+
+func boldFace(size float64) font.Face {
+	f, err := truetype.Parse(fontCustom)
+	if err != nil {
+		log.Fatalf("failed to parse font: %v", err)
+	}
+	return truetype.NewFace(f, &truetype.Options{
+		Size:    size,
+		DPI:     96,
+		Hinting: font.HintingFull,
+	})
 }
 
 func renderVWCEBMP(ctx context.Context) ([]byte, error) {
