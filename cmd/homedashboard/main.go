@@ -69,13 +69,11 @@ func handleDashboardBMP(w http.ResponseWriter, r *http.Request) {
 		} else if lastPage == 1 {
 			handleQuoteBMP(w, r)
 		} else if lastPage == 2 {
-			handlePhotoBMP(w, r)
-		} else if lastPage == 3 {
 			handleStocksBMP(w, r)
-		} else if lastPage == 4 {
+		} else if lastPage == 3 {
 			handleCalendarBMP(w, r)
 		}
-		lastPage = (lastPage + 1) % 5
+		lastPage = (lastPage + 1) % 4
 	}
 }
 
