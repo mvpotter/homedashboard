@@ -16,14 +16,9 @@ esphome logs e1001.yaml
 
 ## App
 
-### Build
-
-```bash
-make build/homedashboard
-```
-
 ### Deploy
 
 ```bash
+make build/homedashboard
 make production/deploy/homedashboard
 ```
